@@ -15,6 +15,9 @@ edition = "2021"
 #serial-core = "0.4.0"
 serial = "0.4.0"
 chrono = "0.4.23"
-
+paho-mqtt = "0.12.0"
+openssl-sys = "0.9.80"
+openssl = { version = "0.10", features = ["vendored"] }
+itertools = "0.10.5"
 #[build]
 #target = ["aarch64-unknown-linux-gnu"]
