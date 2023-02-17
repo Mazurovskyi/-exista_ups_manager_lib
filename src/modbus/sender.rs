@@ -14,24 +14,19 @@ use crate::app::data_structures::{Channel, ModbusMsg, RequestMsg};
 use crate::modbus::msg;
 
 
-pub fn run(sender_port: Arc<Mutex<SystemPort>>, 
-           sender_transmit: Arc<Mutex<Sender<ModbusMsg>>>, 
-           request_receiver: Channel<RequestMsg>){
+pub fn run(sender_port: Arc<Mutex<SystemPort>>, sender_tx: Arc<Mutex<Sender<([u8; 8], usize)>>>, request_channel: Channel<[u16; 4]>){
 
     let mut buf: [u8; 8] = [0;8];
 
-    //waiting for mqtt request or hartbeat timer. loop.
-    //Data to send takes from here and pushes into vector. In for loop vector will be iterating
 
-    for request in request_receiver.recv(){
+    for request in request_channel.recv(){
 
-        let request = msg::new(request);
+        let modbus_msg = msg::new(&request);
 
         let mut port_guard = sender_port.lock().unwrap();
-        
 
         'sending: loop{
-            if let Ok(n) = port_guard.write(&request){
+            if let Ok(n) = port_guard.write(&modbus_msg){
                 println!("Successfully write {n} bytes. Write: {request:?}");
                 break 'sending
             }
@@ -40,8 +35,8 @@ pub fn run(sender_port: Arc<Mutex<SystemPort>>,
         'reading: loop{
             if let Ok(n) = port_guard.read(&mut buf){
                 println!("Successfully read {n} bytes. Read: {buf:?}");
-                sender_transmit.lock().unwrap().send((&buf, n)).unwrap();
-                buf = [0;8];
+                sender_tx.lock().unwrap().send((buf, n)).unwrap();
+                //buf = [0;8];
                 break 'reading
             }
             println!("REDER WORKING IN SENDER...")

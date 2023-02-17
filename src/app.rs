@@ -1,4 +1,5 @@
 pub mod data_structures;
+pub mod config_data;
 use data_structures::*;
 
 use std::error::Error;
@@ -12,45 +13,47 @@ use serial::SystemPort;
 use paho_mqtt::AsyncClient;
 
 
-pub fn config<'a>(path: String)
-->Result<AppEntities<ModbusMsg<'a>, RequestMsg<'a>>, Box<dyn Error>>{
+pub fn config()->Result<AppEntities, Box<dyn Error>>{
 
-    let app_config = match path.is_empty(){
-        true => Configuration::new(None)?,
-        false => Configuration::new(Some(&path))?,
-    };
+    let mut request_channel: Channel<[u16; 4]> = Channel::new(2);
+    let mut modbus_channel: Channel<([u8; 8], usize)> = Channel::new(2);
 
+    let mqtt_tx = request_channel.get_transmitter()?;
+    let reader_tx = modbus_channel.get_transmitter()?;
+    let sender_tx = modbus_channel.get_transmitter()?;
 
-    let modbus_channel = Channel::<ModbusMsg>::new(2);
-    let mut request_channel = Channel::<RequestMsg>::new(2);
-
-    let mqtt_transimit = request_channel.get_transmitter()?;
-    let timer_transmit = request_channel.get_transmitter()?;
-
-    let port = modbus::config(&app_config)?;
-    let mqtt_client = mqtt::config(&app_config, mqtt_transimit)?;
+    let mqtt_entities = mqtt::config(mqtt_tx)?; // -> mqtt_client, connect_options
+    let modbus_entities = modbus::config(request_channel, reader_tx, sender_tx)?; // -> read_handler, send_handler, timer_handler
     
-
-    let modbus_entities = ModbusEnt::new(port, modbus_channel, request_channel, timer_transmit);
-    let mqtt_entities = MqttEnt::new(mqtt_client);
-    
-    
-    Ok(AppEntities::<ModbusMsg<'a>, RequestMsg<'a>>::
-    new(modbus_entities, mqtt_entities))
+    Ok(AppEntities::new(mqtt_entities, modbus_entities, modbus_channel))
 }
 
 
-pub fn run<'a>(app_entities: AppEntities<ModbusMsg<'a>, RequestMsg<'a>>)
-->Result<(), Box<dyn Error>>{
 
-    if let Err(err) = modbus::run(app_entities.modbus_entities()){
+
+
+pub fn run(app_entities: AppEntities)->Result<(), Box<dyn Error>>{
+
+    if let Err(err) = modbus::run(app_entities.modbus_channel()){
         return Err(format!("error running modbus: {err}").into())
     };
 
-    if let Err(err) = mqtt::run(app_entities.mqtt_entities()){
+
+/*
+
+    if let Err(err) = modbus::run(app_entities.modbus_port()){
+        return Err(format!("error running modbus: {err}").into())
+    };
+
+    if let Err(err) = mqtt::run(app_entities.mqtt_client()){
         return Err(format!("error running mqtt: {err}").into())
     };
 
+    Ok(())
+
+
+
+ */
     Ok(())
 }
 

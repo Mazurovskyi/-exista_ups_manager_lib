@@ -14,7 +14,7 @@ use crate::app::data_structures::ModbusMsg;
 
 
 
-pub fn run<'a>(reader_port: Arc<Mutex<SystemPort>>, reader_transmit: Arc<Mutex<Sender<ModbusMsg<'a>>>>){
+pub fn run(reader_port: Arc<Mutex<SystemPort>>, reader_tx: Arc<Mutex<Sender<([u8; 8], usize)>>>){
 
     let mut buf: [u8; 8] = [0;8];
         
@@ -22,7 +22,7 @@ pub fn run<'a>(reader_port: Arc<Mutex<SystemPort>>, reader_transmit: Arc<Mutex<S
         if let Ok(n) = reader_port.lock().unwrap().read(&mut buf){
 
             println!("Successfully read {n} bytes. Read: {buf:?}");
-            reader_transmit.lock().unwrap().send((&buf, n)).unwrap();
+            reader_tx.lock().unwrap().send((buf, n)).unwrap();
             //buf = [0;8];
 
         }

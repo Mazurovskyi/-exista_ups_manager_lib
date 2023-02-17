@@ -7,38 +7,24 @@ use std::sync::{Arc, Mutex, mpsc::Sender};
 use std::{env, process, sync::RwLock, thread, time::Duration};
 use std::error::Error;
 
-use paho_mqtt::AsyncClient;
-use crate::app::data_structures::{Configuration, Channel, AppEntities, MqttEnt, RequestMsg};
+use paho_mqtt::{AsyncClient, connect_options, ConnectOptions};
+//use crate::app::data_structures::{Configuration, Channel, AppEntities, RequestMsg};
 
-
+use crate::app::config_data::*;
+use crate::app::data_structures::*;
 
 
 /// Doesn`t support reconnection if the failure connection occurs.
 /// Reconnect only if the client loses the connection after existing connection.
-pub fn config(app_config: &Configuration, mqtt_transimit: Arc<Mutex<Sender<RequestMsg>>>)
--> Result<AsyncClient, Box<dyn Error>>{
-
-    // Callback for a successful connection to the broker. Subscribe the topics
-    let on_connect_success = |client: &paho_mqtt::AsyncClient, _msgid: u16| {
-        println!("Connection succeeded");
-        client.subscribe_many(app_config.mqtt_topics(), app_config.mqtt_qos());
-        println!("Subscribed to topics: {:?}", app_config.mqtt_topics());  
-    };
-
-    // Callback for a fail connection
-    let on_connect_failure = |client: &paho_mqtt::AsyncClient, _msgid: u16, rc: i32|{
-            println!("Connection attempt failed with error code {}.\n", rc);
-            //thread::sleep(Duration::from_millis(1000));
-            //client.reconnect_with_callbacks(on_connect_success, on_connect_failure);
-    };
+pub fn config(mqtt_tx: Arc<Mutex<Sender<[u16; 4]>>>)-> Result<MqttEntities, Box<dyn Error>>{
 
     // client creation options
     let creation_options = paho_mqtt::CreateOptionsBuilder::new();
     
-    let creation_options = creation_options.server_uri(app_config.mqtt_host())
-        .client_id(app_config.mqtt_clientId())
-        .user_data(Box::new(app_config.mqtt_topics()))
-        .mqtt_version(app_config.mqtt_version())
+    let creation_options = creation_options.server_uri(HOST)
+        .client_id(CLIENT_ID)
+        .user_data(Box::new(TOPICS))
+        .mqtt_version(MQTT_VERSION)
         .finalize();
 
     // Create the new MQTT client based on creation options
@@ -57,71 +43,51 @@ pub fn config(app_config: &Configuration, mqtt_transimit: Arc<Mutex<Sender<Reque
     });
 
 
-    let callback = |_client, msg: Option<Message>|{
-        if let Some(msg) = msg {
-
-            let send_request = |request: &[&[u16]]|->Result<(), Box<dyn Error>>{
-                let guard = mqtt_transimit.lock().unwrap();
-        
-                for data in request{
-                    guard.send(data)?
-                }
-                Ok(())
-            };
-        
-            let result = match msg.topic(){
-                "gateway/batteryInfo.req" => {
-                    send_request(app_config.battery_info_request())
-                }
-                "connect" => {
-                    send_request(app_config.connect())
-                }
-                topic => {
-                    eprintln!("Unknown topic message have received: {topic}");
-                    Ok(())
-                }
-            };
-
-            if let Err(err) = result{
-                 println!("Receiver of \"request_channel\" crashed before mqtt still working!");
-                 process::exit(0)
-            }
-        }
-        else{
-            println!("We have received an mqtt massage. But empty payload!")
-        }
-    };
-
-
-
-
     // callback on incoming messages.
-    client.set_message_callback(callback);
+    client.set_message_callback(|_client, msg: Option<Message>| msg::handler(msg, mqtt_tx));
     
 
     // client connection options. MQTT v3.x connection.
     let mut conn_opts = paho_mqtt::ConnectOptionsBuilder::new();
 
     let conn_opts = conn_opts
-    .keep_alive_interval(Duration::from_secs(app_config.mqtt_keep_alive()))
+    .keep_alive_interval(Duration::from_secs(KEEP_ALIVE))
     .finalize();
     //.will_message(lwt);
 
-    
-    // connecting to the broker...
-    println!("Connecting to the MQTT server...");
-    client.connect_with_callbacks(conn_opts, on_connect_success, on_connect_failure);
 
-    Ok(client)
+    Ok(MqttEntities::new(client, conn_opts))
+//========================================================================================
+    // connecting to the broker...
+   // println!("Connecting to the MQTT server...");
+    //client.connect_with_callbacks(conn_opts, on_connect_success, on_connect_failure);
+
+    //Ok(client)
+//========================================================================================
 }
 
 
+    // Callback for a successful connection to the broker. Subscribe the topics
+    fn on_connect_success(client: &paho_mqtt::AsyncClient, _msgid: u16){
+        println!("Connection succeeded");
+        client.subscribe_many(&TOPICS, QOS);
+        println!("Subscribed to topics: {:?}", TOPICS);  
+    }
+
+    // Callback for a fail connection
+    fn on_connect_failure(client: &paho_mqtt::AsyncClient, _msgid: u16, rc: i32){
+            println!("Connection attempt failed with error code {}.\n", rc);
+            thread::sleep(Duration::from_millis(1000));
+            client.reconnect_with_callbacks(on_connect_success, on_connect_failure);
+    }
 
 
+pub fn run(client: AsyncClient, conn_opts: ConnectOptions)->Result<(), Box<dyn Error>>{
 
+    println!("Connecting to the MQTT server...");
+    client.connect_with_callbacks(conn_opts, on_connect_success, on_connect_failure);
 
-
-pub fn run(mqtt_entities: MqttEnt)->Result<(), Box<dyn Error>>{
+    //Ok(client)
     loop {
         thread::sleep(Duration::from_millis(2000));
     }
