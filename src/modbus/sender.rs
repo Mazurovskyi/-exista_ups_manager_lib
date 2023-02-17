@@ -19,7 +19,7 @@ pub fn run(sender_port: Arc<Mutex<SystemPort>>, sender_tx: Arc<Mutex<Sender<([u8
     let mut buf: [u8; 8] = [0;8];
 
 
-    for request in request_channel.recv(){
+    while let Ok(request) = request_channel.recv(){
 
         let modbus_msg = msg::new(&request);
 
@@ -27,7 +27,7 @@ pub fn run(sender_port: Arc<Mutex<SystemPort>>, sender_tx: Arc<Mutex<Sender<([u8
 
         'sending: loop{
             if let Ok(n) = port_guard.write(&modbus_msg){
-                println!("Successfully write {n} bytes. Write: {request:?}");
+                println!("Successfully write {n} bytes. Write: {modbus_msg:?}");
                 break 'sending
             }
         }

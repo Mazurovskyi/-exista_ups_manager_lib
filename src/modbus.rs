@@ -25,9 +25,10 @@ pub fn config(
     sender_tx: Arc<Mutex<Sender<([u8; 8], usize)>>>)
     ->Result<ModbusEntities, Box<dyn Error>>
     {
-
+    println!("set the directory");
     let mut port = serial::open(PORT)?;
 
+    println!("serial port settings");
     //serial port settings
     port.reconfigure(&|port_config|{
         port_config.set_baud_rate(serial::Baud115200)?;
@@ -68,7 +69,7 @@ pub fn config(
     let send_handler = thread::spawn(sender);
     let timer_handler = thread::spawn(timer);
 
-
+    println!("return modbus entities");
     Ok(ModbusEntities::new(read_handler, send_handler, timer_handler))
 }
     
@@ -80,39 +81,19 @@ pub fn run(modbus_channel: &Channel<([u8; 8], usize)>)->Result<(), Box<dyn Error
     //read_handler.join().expect("READ HANDLER ERROR");
     //imer_handler.join().expect("TIMER HANDLER ERROR");
 
-
-
-    for msg in modbus_channel.recv(){
+    println!("Waiting message on modbus_rx...");
+    //the corresponding Sender has disconnected, or it disconnects while this call is blocking
+    while let Ok(msg) = modbus_channel.recv(){
         println!("Received {0} bytes: {1:?}", msg.1, msg.0);
         match msg::parse(&msg.0, msg.1){
             Ok("battery_info_registers") => {println!("RECEIVED battery_info_registers: {:?}", msg.0)},
             Ok("firmware_version") => {println!("RECEIVED firmware_version: {:?}", msg.0)},
             Ok("hartbeat_response") => {println!("RECEIVED hartbeat_response: {:?}", msg.0)},
             Ok("event_msg")=> {println!("RECEIVED event_msg: {:?}", msg.0)}
-            Err(err) => println!("MSG ERROR: {err}"),
+            Err(err) => println!("RECEIVED MSG ERROR: {err}"),
             _=> {}
         }
     }
-
-
-  
-    /*
-    
-        for msg in rx.recv(){
-        println!("Received {0} bytes: {1:?}", msg.1, msg.0);
-        match msg::parse(&msg.0, msg.1){
-            Ok("battery_info_registers") => {println!("RECEIVED battery_info_registers: {:?}", msg.0)},
-            Ok("firmware_version") => {println!("RECEIVED firmware_version: {:?}", msg.0)},
-            Ok("hartbeat_response") => {println!("RECEIVED hartbeat_response: {:?}", msg.0)},
-            Ok("event_msg")=> {println!("RECEIVED event_msg: {:?}", msg.0)}
-            Err(err) => println!("MSG ERROR: {err}"),
-            _=> {}
-        }
-    }
-    
-    
-    
-     */
 
     
     Ok(())

@@ -92,6 +92,10 @@ impl AppEntities{
     pub fn modbus_channel(&self)->&Channel<([u8; 8], usize)>{
         self.modbus_channel.borrow()
     }
+
+    pub fn mqtt_entities(&self)->& MqttEntities{
+        self.mqtt_entities.borrow()
+    }
     
 
 }
@@ -111,6 +115,15 @@ impl MqttEntities{
             conn_opts,
         }
     }
+
+
+    pub fn client(&self)->&AsyncClient{
+        self.client.borrow()
+    }
+    pub fn conn_opts(&self)->&ConnectOptions{
+        self.conn_opts.borrow()
+    }
+
 }
 
 

@@ -6,18 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# MODBUS
-#tokio-modbus = { version = "*", default-features = false, features = ["rtu"] }
-#tokio-modbus = "0.5.4"
-#tokio-serial = "5.4.4"
 
-# SERIAL
-#serial-core = "0.4.0"
 serial = "0.4.0"
 chrono = "0.4.23"
 paho-mqtt = "0.12.0"
 openssl-sys = "0.9.80"
 openssl = { version = "0.10", features = ["vendored"] }
 itertools = "0.10.5"
-#[build]
-#target = ["aarch64-unknown-linux-gnu"]

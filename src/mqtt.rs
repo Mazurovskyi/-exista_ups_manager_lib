@@ -20,13 +20,14 @@ pub fn config(mqtt_tx: Arc<Mutex<Sender<[u16; 4]>>>)-> Result<MqttEntities, Box<
 
     // client creation options
     let creation_options = paho_mqtt::CreateOptionsBuilder::new();
-    
+    println!("connection opt...");
     let creation_options = creation_options.server_uri(HOST)
         .client_id(CLIENT_ID)
         .user_data(Box::new(TOPICS))
         .mqtt_version(MQTT_VERSION)
         .finalize();
 
+        println!("client new");
     // Create the new MQTT client based on creation options
     let client = paho_mqtt::AsyncClient::new(creation_options)?;
 
@@ -38,24 +39,24 @@ pub fn config(mqtt_tx: Arc<Mutex<Sender<[u16; 4]>>>)-> Result<MqttEntities, Box<
     // closure to be called if the client loses the connection. Try to reconect
     client.set_connection_lost_callback(|client: &paho_mqtt::AsyncClient| {
         println!("Connection lost. Trying to reconnect.");
-        thread::sleep(Duration::from_millis(2000));
+        thread::sleep(Duration::from_millis(1000));
         client.reconnect_with_callbacks(on_connect_success, on_connect_failure);
     });
 
-
+    println!("set callback");
     // callback on incoming messages.
-    client.set_message_callback(|_client, msg: Option<Message>| msg::handler(msg, mqtt_tx));
+    client.set_message_callback(move |_client, msg: Option<Message>| msg::handler(msg, mqtt_tx.clone()));
     
 
     // client connection options. MQTT v3.x connection.
     let mut conn_opts = paho_mqtt::ConnectOptionsBuilder::new();
-
+    
     let conn_opts = conn_opts
     .keep_alive_interval(Duration::from_secs(KEEP_ALIVE))
     .finalize();
     //.will_message(lwt);
 
-
+    println!("return mqtt entities");
     Ok(MqttEntities::new(client, conn_opts))
 //========================================================================================
     // connecting to the broker...
@@ -82,13 +83,11 @@ pub fn config(mqtt_tx: Arc<Mutex<Sender<[u16; 4]>>>)-> Result<MqttEntities, Box<
     }
 
 
-pub fn run(client: AsyncClient, conn_opts: ConnectOptions)->Result<(), Box<dyn Error>>{
+pub fn run(mqtt_entities: &MqttEntities)->Result<(), Box<dyn Error>>{
+    //client: AsyncClient, conn_opts: ConnectOptions
 
     println!("Connecting to the MQTT server...");
-    client.connect_with_callbacks(conn_opts, on_connect_success, on_connect_failure);
-
-    //Ok(client)
-    loop {
-        thread::sleep(Duration::from_millis(2000));
-    }
+    mqtt_entities.client().connect_with_callbacks(mqtt_entities.conn_opts().clone(), on_connect_success, on_connect_failure);
+    println!("COMEBACK MQTT YESSS");
+    Ok(())
 }

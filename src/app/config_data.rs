@@ -6,7 +6,7 @@ pub const HOST: &str = "127.0.0.1:1883";
 pub const KEEP_ALIVE: u64 = 60;
 
 
-pub const PORT: &str = "/dev/ttyUPS0";
+pub const PORT: &str = "/dev/ttyUPS";
 pub const TIMEOUT: u64 = 1;
 
 const READ_DC_STATUS: [u16; 4] =      [0x11, 0x03, 0x17, 0x01];
